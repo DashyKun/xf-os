@@ -14,4 +14,4 @@ uint32_t strlen(const char* str);
 char* strdup(const char* str);
 char* strcat(const char* s1, const char* s2);
 
-#endif //STRING_H
+#endif //STRFN_H

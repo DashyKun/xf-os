@@ -4,7 +4,6 @@
 #include "types.h"
 #include "strfn.h"
 
-// no malloc? 😕
 #define INPUT_BUFFER_SIZE   256
 
 static void sh_help(void);

@@ -1,14 +1,17 @@
 #include "shell.h"
-#include "drivers/keyboard/keyboard.h"
 #include "mm/malloc.h"
 #include "io/io.h"
 #include "sys/sys.h"
 #include "panic/panic.h"
 
+#include "drivers/keyboard/keyboard.h"
+#include "drivers/pit/pit.h"
+
 #define GETC_QUEUE_SIZE     16
 
 static char getc_queue[GETC_QUEUE_SIZE];
-static volatile uint32_t getc_read_pos = 0, getc_write_pos = 0;
+static volatile uint32_t getc_read_pos = 0;
+static volatile uint32_t getc_write_pos = 0;
 static volatile bool getc_mode = false;
 static char input_buffer[INPUT_BUFFER_SIZE];
 static uint32_t buffer_index = 0;
@@ -109,12 +112,61 @@ static void sh_echo(void)
     
     free_tokens(tokens, argc);
 }
+static void sh_8ball(void)
+{
+    if (command_args == NULL || *command_args == '\0')
+    {
+        printstr("Ask the magic 8-ball a question!\n");
+        return;
+    }
+
+    static const char* responses[] =
+    {
+        "Yes, definitely!",
+        "No way!",
+        "Ask again later.",
+        "Cannot predict now.",
+        "Don't count on it.",
+        "My sources say no.",
+        "Outlook good!",
+        "Signs point to yes.",
+        "Very doubtful.",
+        "It is certain.",
+        "Reply hazy, try again.",
+        "Better not tell you now.",
+        "Concentrate and ask again.",
+        "As I see it, yes.",
+        "Most likely.",
+        "Without a doubt."
+    };
+
+    printstr("\n");
+    cprintstr("Question: ", YELLOW, BLACK);
+    printstr(command_args);
+    printstr("\n\n");
+
+    cprintstr("Consulting the oracle", BLUE, BLACK);
+    for (int i = 0; i < 3; i++)
+    {
+        sleepms(400);
+        putc('.');
+    }
+    printstr("\n\n");
+
+    srand(pit_get_ticks());
+    uint32_t choice = rand_range(16);
+
+    cprintstr("8-ball: ", CYAN, BLACK);
+    cprintstr(responses[choice], GREEN, BLACK);
+    printstr("\n");
+}
 
 static command_t commands[] = {
     {"help", "Show this message",           sh_help, false},
     {"clear", "Clears the screen",          sh_clear, false},
     {"panic", "Invokes kernel panic",       sh_panic, false},
     {"echo", "Print text to the screen",    sh_echo, true},
+    {"8ball", "Ask the magic 8-ball for answers", sh_8ball, true},
     {0,0,0,0}
 };
 
@@ -207,20 +259,19 @@ void sh_init(void)
 
 char sh_getc(void)
 {
-    // Enable interrupts (required for keyboard handler to work)
+    outb(0x20, 0x20);
     asm volatile("sti");
     
     getc_mode = true;
+    getc_write_pos = 0;
+    getc_read_pos = 0;
     
-    // Wait for a key to be pressed
-    while (getc_read_pos == getc_write_pos) {
-        asm volatile("nop");
+    while (getc_write_pos == getc_read_pos) {
     }
     
     char c = getc_queue[getc_read_pos];
-    getc_read_pos = (getc_read_pos + 1) % GETC_QUEUE_SIZE;
-    
     getc_mode = false;
+    
     return c;
 }
 

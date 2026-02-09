@@ -7,6 +7,8 @@
 #include "sh/shell.h"
 #include "mm/malloc.h"
 
+#include "drivers/pit/pit.h"
+
 extern char __heap_start;
 extern char __heap_end;
 
@@ -37,6 +39,8 @@ void kmain(void)
 
     idt_init();
     kstatus_print(true, "IDT loaded!");
+    pit_init();
+    kstatus_print(true, "PIT initialized!");
 
     kstatus_print(true, "Keyboard initialized!");
 

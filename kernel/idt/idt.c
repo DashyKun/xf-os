@@ -3,6 +3,7 @@
 #include "types.h"
 
 #include "drivers/keyboard/keyboard.h"
+#include "drivers/pit/pit.h"
 
 struct idt_entry {
     uint16_t base_low;
@@ -38,8 +39,8 @@ static void pic_remap(void)
     outb(0x20, 0x11);
     outb(0xA0, 0x11);
 
-    outb(0x21, 0x20);  // master pic, interrupts 32-39
-    outb(0xA1, 0x28);  // slave pic, interrupts 40-47
+    outb(0x21, 0x20);
+    outb(0xA1, 0x28);
     
     outb(0x21, 0x04);
     outb(0xA1, 0x02);
@@ -47,13 +48,21 @@ static void pic_remap(void)
     outb(0x21, 0x01);
     outb(0xA1, 0x01);
 
-    outb(0x21, mask1);
-    outb(0xA1, mask2);
+    outb(0x21, 0xFC);
+    outb(0xA1, 0xFF);
 }
 
-void isr_handler(uint32_t int_no)
+
+void isr_handler(registers_t* regs)
 {
-    keyboard_handler();
+    if (regs->int_no == 32)
+    {
+        pit_tick();
+    }
+    else if (regs->int_no == 33)
+    {
+        keyboard_handler();
+    }
     outb(0x20, 0x20);
 }
 
@@ -130,11 +139,11 @@ void idt_init(void)
     idt_set_gate(29, (uint32_t)isr29, 0x08, 0x8E);
     idt_set_gate(30, (uint32_t)isr30, 0x08, 0x8E);
     idt_set_gate(31, (uint32_t)isr31, 0x08, 0x8E);
-    idt_set_gate(32, (uint32_t)isr32, 0x08, 0x8E);
-    idt_set_gate(33, (uint32_t)isr33, 0x08, 0x8E);
+    idt_set_gate(32, (uint32_t)isr32, 0x08, 0x8E);  // IRQ0 - Timer
+    idt_set_gate(33, (uint32_t)isr33, 0x08, 0x8E);  // IRQ1 - Keyboard
 
     idt_pointer.limit = sizeof(struct idt_entry) * 256 - 1;
-    idt_pointer.base = (uint32_t)&idt_pointer;
+    idt_pointer.base = (uint32_t)&idt;  // FIX: Should point to idt, not idt_pointer
     idt_load((uint32_t)&idt_pointer);
 
     asm volatile ("sti");
